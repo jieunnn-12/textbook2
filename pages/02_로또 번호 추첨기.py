@@ -2,7 +2,6 @@ import streamlit as st
 import random
 
 # --- 최근 로또 당첨 번호 설정 (수동 업데이트 필요) ---
-# 로또 6/45, 1부터 45 중 6개 번호 + 보너스 번호 1개
 RECENT_WINNING_NUMBERS = {
     '회차': '제1195회 (2025.10.25)',
     '당첨번호': [3, 15, 27, 33, 34, 36],
@@ -16,13 +15,9 @@ def generate_lotto_numbers():
 def compare_numbers(my_numbers, winning_numbers, bonus_number):
     """생성된 번호와 당첨 번호를 비교하여 결과를 반환합니다."""
     
-    # 1. 일치하는 당첨번호 개수 (보너스 제외)
     match_count = len(set(my_numbers) & set(winning_numbers))
-    
-    # 2. 보너스 번호 일치 여부
     bonus_match = bonus_number in my_numbers
     
-    # 3. 등수 판별
     if match_count == 6:
         rank = "1등"
     elif match_count == 5 and bonus_match:
@@ -45,7 +40,7 @@ st.markdown("1부터 45까지의 숫자 중에서 6개의 로또 번호를 추�
 
 st.sidebar.header("설정")
 
-# 슬라이더 대신 숫자 입력 (number_input) 사용
+# 몇 세트를 만들지 선택하는 숫자 입력
 num_sets = st.sidebar.number_input(
     "추첨할 세트 수 (1~20)", 
     min_value=1, 
@@ -54,8 +49,16 @@ num_sets = st.sidebar.number_input(
     step=1
 )
 
+# 생성 버튼을 누르면
 if st.sidebar.button("🔢 생성 버튼"):
-    st.header(f"{num_sets} 세트 추첨 결과")
+    # 1. 풍선 띄우기 기능 추가
+    st.balloons()
+    
+    # 2. 결과 제목의 색상을 하늘색으로 변경
+    st.markdown(
+        f"<h2 style='color:skyblue;'>{num_sets} 세트 추첨 결과</h2>", 
+        unsafe_allow_html=True
+    )
     
     # 당첨 번호 표시
     winning_nums = RECENT_WINNING_NUMBERS['당첨번호']
@@ -72,7 +75,7 @@ if st.sidebar.button("🔢 생성 버튼"):
         my_numbers = generate_lotto_numbers()
         match_count, bonus_match, rank = compare_numbers(my_numbers, winning_nums, bonus_num)
 
-        # 비교 결과 색상 설정
+        # 등수별 색상 설정
         if rank == "1등":
             rank_color = "green"
         elif rank == "2등":
@@ -94,24 +97,22 @@ if st.sidebar.button("🔢 생성 버튼"):
             "결과": f"<span style='color:{rank_color}; font-weight:bold;'>{rank}</span>"
         })
 
-    # 결과를 HTML을 포함한 마크다운으로 표시하여 색상 적용
+    # 테이블 표시 (HTML 사용)
     st.markdown(
         """
         <style>
         .dataframe th, .dataframe td {
             text-align: center !important;
             vertical-align: middle !important;
+            padding: 8px 12px;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
     
-    # HTML을 사용하여 테이블 출력
     html_table = "<table>"
-    # 헤더
     html_table += "<thead><tr><th>세트</th><th>번호</th><th>일치 개수</th><th>보너스 일치</th><th>결과</th></tr></thead>"
-    # 본문
     html_table += "<tbody>"
     for row in results_data:
         html_table += f"<tr><td>{row['세트']}</td><td>{row['번호']}</td><td>{row['일치 개수']}</td><td>{row['보너스 일치']}</td><td>{row['결과']}</td></tr>"
