@@ -44,8 +44,15 @@ st.title("💰 로또 6/45 번호 추첨기")
 st.markdown("1부터 45까지의 숫자 중에서 6개의 로또 번호를 추첨합니다.")
 
 st.sidebar.header("설정")
-# 몇 세트를 만들지 선택하는 슬라이더 (1~10세트)
-num_sets = st.sidebar.slider("추첨할 세트 수", 1, 10, 5)
+
+# 슬라이더 대신 숫자 입력 (number_input) 사용
+num_sets = st.sidebar.number_input(
+    "추첨할 세트 수 (1~20)", 
+    min_value=1, 
+    max_value=20, 
+    value=5, 
+    step=1
+)
 
 if st.sidebar.button("🔢 생성 버튼"):
     st.header(f"{num_sets} 세트 추첨 결과")
@@ -66,7 +73,18 @@ if st.sidebar.button("🔢 생성 버튼"):
         match_count, bonus_match, rank = compare_numbers(my_numbers, winning_nums, bonus_num)
 
         # 비교 결과 색상 설정
-        rank_color = "green" if rank in ["1등", "2등"] else ("orange" if rank in ["3등", "4등"] else ("blue" if rank == "5등" else "grey"))
+        if rank == "1등":
+            rank_color = "green"
+        elif rank == "2등":
+            rank_color = "darkgreen"
+        elif rank == "3등":
+            rank_color = "orange"
+        elif rank == "4등":
+            rank_color = "blue"
+        elif rank == "5등":
+            rank_color = "teal"
+        else:
+            rank_color = "grey"
         
         results_data.append({
             "세트": f"{i}번",
@@ -76,19 +94,30 @@ if st.sidebar.button("🔢 생성 버튼"):
             "결과": f"<span style='color:{rank_color}; font-weight:bold;'>{rank}</span>"
         })
 
-    # 결과를 데이터프레임으로 만들어 표시 (HTML을 포함하여 결과에 색상 적용)
-    st.write(
+    # 결과를 HTML을 포함한 마크다운으로 표시하여 색상 적용
+    st.markdown(
         """
         <style>
-        .dataframe td {
-            line-height: 1.5; /* 셀 내용의 줄 간격 */
+        .dataframe th, .dataframe td {
+            text-align: center !important;
+            vertical-align: middle !important;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
     
-    st.table(results_data)
+    # HTML을 사용하여 테이블 출력
+    html_table = "<table>"
+    # 헤더
+    html_table += "<thead><tr><th>세트</th><th>번호</th><th>일치 개수</th><th>보너스 일치</th><th>결과</th></tr></thead>"
+    # 본문
+    html_table += "<tbody>"
+    for row in results_data:
+        html_table += f"<tr><td>{row['세트']}</td><td>{row['번호']}</td><td>{row['일치 개수']}</td><td>{row['보너스 일치']}</td><td>{row['결과']}</td></tr>"
+    html_table += "</tbody></table>"
+
+    st.markdown(html_table, unsafe_allow_html=True)
 
 st.markdown("---")
 st.caption("참고: 로또 당첨 번호는 수동으로 업데이트해야 합니다.")
