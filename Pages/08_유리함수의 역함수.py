@@ -11,7 +11,7 @@ st.title("유리함수와 역함수 디지털 교과서 📝")
 def calculate_function_values(x_range, a, b, c, d, is_inverse=False):
     """
     유리함수 또는 역함수의 값을 계산하고 
-    점근선 주변의 극단적인 값을 NaN으로 처리하여 그래프의 수직선 발생을 방지합니다.
+    점근선 주변의 극단적인 값을 Mask 처리하여 그래프의 수직선 발생을 방지합니다.
     """
     if is_inverse:
         # 역함수: y = (-dx + b) / (cx - a)
@@ -29,12 +29,12 @@ def calculate_function_values(x_range, a, b, c, d, is_inverse=False):
     numerator = num_x_coef * x_range + num_const
     denominator = den_x_coef * x_range + den_const
     
-    # 1. 분모가 0에 가까운 지점은 np.nan으로 처리 (함수 미정의)
+    # 1. 분모가 0에 가까운 지점은 np.nan으로 처리 (분모가 0이면 함수 미정의)
     is_singular = np.abs(denominator) < 1e-6 
     y = np.where(is_singular, np.nan, numerator / denominator)
     
-    # 2. **수직선 제거 핵심**: y 값이 일정 범위를 벗어나는 경우 (극한값) np.nan으로 처리하여 
-    # Matplotlib이 점을 연결하지 못하도록 막아 수직선이 생기는 것을 방지합니다.
+    # 2. 너무 큰 값(점근선 근처)도 np.nan으로 처리하여 Matplotlib이 수직선을 그리지 않도록 방지
+    # 이 과정이 그래프의 수직선(컴퓨터가 점을 이어 생기는 오류선)을 제거합니다.
     y = np.where(np.abs(y) > 50, np.nan, y) 
     
     return y
@@ -49,13 +49,27 @@ if 'c' not in st.session_state:
 if 'd' not in st.session_state:
     st.session_state.d = 0
 
+def set_random_params():
+    """a, b, c, d를 -10부터 10 사이의 랜덤 정수로 설정 (특이점 방지)"""
+    while True:
+        a = random.randint(-10, 10)
+        b = random.randint(-10, 10)
+        c = random.randint(-10, 10)
+        d = random.randint(-10, 10)
+        
+        if (c != 0 or d != 0) and (a*d - b*c != 0):
+            st.session_state.a = a
+            st.session_state.b = b
+            st.session_state.c = c
+            st.session_state.d = d
+            break
+
 # --- 사이드바 (입력) ---
 with st.sidebar:
     st.header("📊 계수 설정")
-    
+    st.button("랜덤 계수 생성", on_click=set_random_params)
     st.write("---")
     
-    # 슬라이더 (수동 설정)
     st.session_state.a = st.slider("a (분자 x 계수)", -10, 10, st.session_state.a, key='slider_a')
     st.session_state.b = st.slider("b (분자 상수항)", -10, 10, st.session_state.b, key='slider_b')
     st.session_state.c = st.slider("c (분모 x 계수)", -10, 10, st.session_state.c, key='slider_c')
@@ -67,8 +81,6 @@ c = st.session_state.c
 d = st.session_state.d
 
 # --- 본문 (출력) ---
-
-# 1. 수식
 st.header("1. 유리함수 및 역함수 수식")
 col1, col2 = st.columns(2)
 
@@ -80,8 +92,7 @@ with col2:
     st.subheader("역함수 $f^{-1}(x)$")
     st.markdown(f"$$y = f^{{-1}}(x) = \\frac{{{-d}x + {b}}}{{{c}x + {{-a}}}}$$")
 
-# ---
-# 2. 특이점 정보
+# --- 특이점 정보 ---
 st.header("2. 주요 정보 및 특이점")
 determinant = a * d - b * c
 
@@ -90,9 +101,11 @@ if determinant == 0:
 elif c == 0 and d == 0:
     st.error("🚨 **분모가 $0$ 이므로 함수가 정의되지 않습니다.** $c$ 또는 $d$ 중 하나 이상은 $0$이 아니어야 합니다.")
 else:
+    # f(x) = f^-1(x) 조건 체크
     if a == -d:
         st.success("✅ **$a = -d$** 일 때, $f(x)$의 역함수 공식은 $f^{{-1}}(x) = \\frac{{ax + b}}{{cx + d}}$ 이 되어 **원래 함수와 식이 같습니다!**")
     
+    # 점근선 정보
     if c != 0:
         vertical_asymptote_f = -d / c
         horizontal_asymptote_f = a / c
@@ -101,11 +114,11 @@ else:
         
         **👉 참고:** $f(x)$의 수직 점근선 ($x$)이 $f^{{-1}}(x)$의 수평 점근선 ($y$)이 되고, $f(x)$의 수평 점근선 ($y$)이 $f^{{-1}}(x)$의 수직 점근선 ($x$)이 됩니다.
         """)
-    else: 
+    else: # c == 0 인 경우
         st.warning("⚠️ **$c=0$ 이므로 함수는 일차함수 또는 상수함수 형태입니다.**")
 
-# ---
-# 3. 그래프 플롯
+
+# --- 그래프 플롯 ---
 st.header("3. 그래프 비교 (y=x 대칭 확인)")
 
 if determinant != 0 and (c != 0 or d != 0):
@@ -126,7 +139,7 @@ if determinant != 0 and (c != 0 or d != 0):
     ax.plot(x_range, x_range, label=r'$y=x$', color='gray', linestyle=':', linewidth=1)
     
     # 플롯 설정
-    ax.set_title("유리함수와 역함수의 그래프 (수직선 제거됨)")
+    ax.set_title("유리함수와 역함수의 그래프 (점근선 수직선 제거됨)")
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.grid(True, linestyle='--', alpha=0.6)
@@ -141,8 +154,8 @@ if determinant != 0 and (c != 0 or d != 0):
 else:
     st.warning("⚠️ **유효하지 않은 계수 조합으로 그래프를 표시할 수 없습니다.**")
 
-# ---
-# 4. 역함수 공식 유도 과정
+
+# --- 역함수 유도 과정 추가 ---
 st.header("4. 역함수 공식 유도 과정 💡")
 st.markdown("유리함수의 역함수는 **$x$와 $y$의 위치를 바꾼 후** $y$에 대해 정리하여 공식 $y = \\frac{{-dx + b}}{{cx - a}}$ 를 얻게 됩니다.")
 
