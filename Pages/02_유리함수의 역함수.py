@@ -34,11 +34,12 @@ def calculate_function_values(x_range, a, b, c, d, is_inverse=False):
     y = np.where(is_singular, np.nan, numerator / denominator)
     
     # 2. 너무 큰 값(점근선 근처)도 np.nan으로 처리하여 Matplotlib이 수직선을 그리지 않도록 방지
+    # 이 과정이 그래프의 수직선(컴퓨터가 점을 이어 생기는 오류선)을 제거합니다.
     y = np.where(np.abs(y) > 50, np.nan, y) 
     
     return y
 
-# --- 상태 관리 및 초기값 설정 (생략: 이전 코드와 동일) ---
+# --- 상태 관리 및 초기값 설정 ---
 if 'a' not in st.session_state:
     st.session_state.a = 1
 if 'b' not in st.session_state:
@@ -91,10 +92,34 @@ with col2:
     st.subheader("역함수 $f^{-1}(x)$")
     st.markdown(f"$$y = f^{{-1}}(x) = \\frac{{{-d}x + {b}}}{{{c}x + {{-a}}}}$$")
 
-# --- 그래프 플롯 (생략: 이전 코드와 동일) ---
-st.header("2. 그래프 비교 (y=x 대칭 확인)")
-
+# --- 특이점 정보 ---
+st.header("2. 주요 정보 및 특이점")
 determinant = a * d - b * c
+
+if determinant == 0:
+    st.error("🚨 **판별식 $ad-bc = 0$ 이므로, 함수가 상수가 되어 역함수가 존재하지 않습니다.** 다른 계수를 선택하세요.")
+elif c == 0 and d == 0:
+    st.error("🚨 **분모가 $0$ 이므로 함수가 정의되지 않습니다.** $c$ 또는 $d$ 중 하나 이상은 $0$이 아니어야 합니다.")
+else:
+    # f(x) = f^-1(x) 조건 체크
+    if a == -d:
+        st.success("✅ **$a = -d$** 일 때, $f(x)$의 역함수 공식은 $f^{{-1}}(x) = \\frac{{ax + b}}{{cx + d}}$ 이 되어 **원래 함수와 식이 같습니다!**")
+    
+    # 점근선 정보
+    if c != 0:
+        vertical_asymptote_f = -d / c
+        horizontal_asymptote_f = a / c
+        st.info(f"""
+        * **유리함수 $f(x)$**의 점근선: $x = {vertical_asymptote_f:.2f}$, $y = {horizontal_asymptote_f:.2f}$
+        
+        **👉 참고:** $f(x)$의 수직 점근선 ($x$)이 $f^{{-1}}(x)$의 수평 점근선 ($y$)이 되고, $f(x)$의 수평 점근선 ($y$)이 $f^{{-1}}(x)$의 수직 점근선 ($x$)이 됩니다.
+        """)
+    else: # c == 0 인 경우
+        st.warning("⚠️ **$c=0$ 이므로 함수는 일차함수 또는 상수함수 형태입니다.**")
+
+
+# --- 그래프 플롯 ---
+st.header("3. 그래프 비교 (y=x 대칭 확인)")
 
 if determinant != 0 and (c != 0 or d != 0):
     
@@ -104,11 +129,17 @@ if determinant != 0 and (c != 0 or d != 0):
 
     fig, ax = plt.subplots(figsize=(8, 8))
     
+    # 1. 원 함수 f(x)
     ax.plot(x_range, y_f, label=r'$f(x)$', color='blue', linestyle='-')
+    
+    # 2. 역함수 f^-1(x)
     ax.plot(x_range, y_inv, label=r'$f^{-1}(x)$', color='red', linestyle='--')
+    
+    # 3. y=x 직선 (대칭선)
     ax.plot(x_range, x_range, label=r'$y=x$', color='gray', linestyle=':', linewidth=1)
-
-    ax.set_title("유리함수와 역함수의 그래프")
+    
+    # 플롯 설정
+    ax.set_title("유리함수와 역함수의 그래프 (점근선 수직선 제거됨)")
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.grid(True, linestyle='--', alpha=0.6)
@@ -117,40 +148,30 @@ if determinant != 0 and (c != 0 or d != 0):
     plot_limit = 10
     ax.set_xlim(-plot_limit, plot_limit)
     ax.set_ylim(-plot_limit, plot_limit)
-    ax.set_aspect('equal', adjustable='box') 
+    ax.set_aspect('equal', adjustable='box') # y=x 대칭 보장
 
     st.pyplot(fig)
 else:
-    st.warning("⚠️ **유효하지 않은 계수 조합으로 그래프를 표시할 수 없습니다.** $ad-bc=0$ 또는 $c=0, d=0$ 인지 확인하세요.")
+    st.warning("⚠️ **유효하지 않은 계수 조합으로 그래프를 표시할 수 없습니다.**")
 
 
-# --- 역함수 유도 과정 추가 (요청 반영) ---
+# --- 역함수 유도 과정 추가 ---
 st.header("4. 역함수 공식 유도 과정 💡")
-st.markdown("유리함수의 역함수는 **$x$와 $y$의 위치를 바꾼 후** $y$에 대해 정리하여 구할 수 있습니다.")
+st.markdown("유리함수의 역함수는 **$x$와 $y$의 위치를 바꾼 후** $y$에 대해 정리하여 공식 $y = \\frac{{-dx + b}}{{cx - a}}$ 를 얻게 됩니다.")
 
 st.subheader("① 1단계: $x$와 $y$ 바꾸기")
-st.markdown(f"원 함수: $$y = \\frac{{{a}x + {b}}}{{{c}x + {d}}}$$")
-st.markdown(f"**$x$와 $y$를 바꾸면:** $$x = \\frac{{{a}y + {b}}}{{{c}y + {d}}}$$")
+st.markdown(f"원 함수: $$y = \\frac{{ax+b}}{{cx+d}}$$")
+st.markdown(f"**$x$와 $y$를 바꾸면:** $$x = \\frac{{ay+b}}{{cy+d}}$$")
 
 st.subheader("② 2단계: $y$에 대해 정리하기")
 
-st.markdown(r"1. 양변에 분모를 곱합니다.")
+st.markdown(r"1. 양변에 분모를 곱하고 $y$에 관하여 정리합니다.")
 st.markdown(r"$$x(cy + d) = ay + b$$")
-
-st.markdown(r"2. $y$ 항을 모으기 위해 전개합니다.")
-st.markdown(r"$$cxy + dx = ay + b$$")
-
-st.markdown(r"3. $y$를 포함하는 항을 좌변으로, 나머지를 우변으로 이항합니다.")
 st.markdown(r"$$cxy - ay = b - dx$$")
-
-st.markdown(r"4. 좌변을 $y$로 묶습니다.")
 st.markdown(r"$$y(cx - a) = -dx + b$$")
 
-st.markdown(r"5. $y$에 대해 정리합니다.")
-st.markdown(r"$$y = \frac{-dx + b}{cx - a}$$")
-
-st.subheader("③ 결론")
-st.success(f"따라서 유리함수 $f(x) = \\frac{{ax+b}}{{cx+d}}$ 의 역함수는 공식 $f^{{-1}}(x) = \\frac{{-dx+b}}{{cx-a}}$ 로 구할 수 있습니다.")
+st.markdown(r"2. **$y$에 대해 정리한 결과 (역함수):**")
+st.success(r"$$y = \frac{-dx + b}{cx - a}$$")
 
 st.markdown("---")
-st.markdown("💡 **$a$와 $d$는 자리를 바꾸면서 부호가 바뀌고, $b$와 $c$는 자리는 그대로 부호도 그대로 유지된다는 것을 기억하세요.**")
+st.markdown("👀 **공식의 특징:** 원래 함수 $y = \\frac{{ax+b}}{{cx+d}}$ 에서 **$a$와 $d$는 자리를 바꾸면서 부호가 바뀌고**, $b$와 $c$는 그대로 유지됩니다.")
