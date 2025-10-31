@@ -8,53 +8,38 @@ st.set_page_config(layout="wide")
 st.title("유리함수와 역함수 디지털 교과서 📝")
 
 # --- 함수 정의 ---
-def get_plot_data(a, b, c, d, is_inverse=False, limit=10.0, resolution=800):
+def calculate_function_values(x_range, a, b, c, d, is_inverse=False):
     """
-    점근선을 기준으로 x 범위를 분할하여 수직선이 나타나지 않도록 데이터 포인트를 생성합니다.
+    유리함수 또는 역함수의 값을 계산하고 
+    점근선 주변의 극단적인 값을 NaN으로 처리하여 그래프의 수직선 발생을 방지합니다.
     """
-    if c == 0:
-        # c=0일 경우 (일차함수 형태)는 분할이 필요 없음
-        x_range = np.linspace(-limit, limit, resolution)
-        if is_inverse:
-            # 역함수 (y = (-dx + b) / (-a))
-            y = (-d * x_range + b) / (-a) if -a != 0 else np.full_like(x_range, np.nan)
-        else:
-            # 원함수 (y = (ax + b) / d)
-            y = (a * x_range + b) / d if d != 0 else np.full_like(x_range, np.nan)
-        return [(x_range, y)]
-    
-    # 일반 유리함수 (c != 0)
     if is_inverse:
-        # 역함수 f^-1(x): 수직 점근선 x = a/c
-        asymptote = a / c
-        # 역함수 함수 정의: y = (-dx + b) / (cx - a)
-        func = lambda x: (-d * x + b) / (c * x - a)
+        # 역함수: y = (-dx + b) / (cx - a)
+        den_x_coef = c
+        den_const = -a
+        num_x_coef = -d
+        num_const = b
     else:
-        # 원함수 f(x): 수직 점근선 x = -d/c
-        asymptote = -d / c
-        # 원함수 함수 정의: y = (ax + b) / (cx + d)
-        func = lambda x: (a * x + b) / (c * x + d)
+        # 원 함수: y = (ax + b) / (cx + d)
+        den_x_coef = c
+        den_const = d
+        num_x_coef = a
+        num_const = b
         
-    # 점근선 근처의 작은 간격 (오류 방지 영역)
-    epsilon = 0.01 
+    numerator = num_x_coef * x_range + num_const
+    denominator = den_x_coef * x_range + den_const
     
-    # 1. 왼쪽 구간: [-limit, asymptote - epsilon]
-    x1 = np.linspace(-limit, asymptote - epsilon, resolution // 2)
-    y1 = func(x1)
+    # 1. 분모가 0에 가까운 지점은 np.nan으로 처리 (함수 미정의)
+    is_singular = np.abs(denominator) < 1e-6 
+    y = np.where(is_singular, np.nan, numerator / denominator)
     
-    # 2. 오른쪽 구간: [asymptote + epsilon, limit]
-    x2 = np.linspace(asymptote + epsilon, limit, resolution // 2)
-    y2 = func(x2)
-
-    # 3. y 값이 너무 크면 nan 처리 (추가적인 안전 장치)
-    y1[np.abs(y1) > 50] = np.nan
-    y2[np.abs(y2) > 50] = np.nan
+    # 2. **수직선 제거 핵심**: y 값이 일정 범위를 벗어나는 경우 (극한값) np.nan으로 처리하여 
+    # Matplotlib이 점을 연결하지 못하도록 막아 수직선이 생기는 것을 방지합니다.
+    y = np.where(np.abs(y) > 50, np.nan, y) 
     
-    # 두 개의 (x, y) 쌍으로 반환 (두 개의 분리된 곡선)
-    return [(x1, y1), (x2, y2)]
+    return y
 
 # --- 상태 관리 및 초기값 설정 ---
-# ... (이하 동일)
 if 'a' not in st.session_state:
     st.session_state.a = 1
 if 'b' not in st.session_state:
@@ -83,18 +68,20 @@ d = st.session_state.d
 
 # --- 본문 (출력) ---
 
-# 1. 수식 (이전 코드와 동일)
+# 1. 수식
 st.header("1. 유리함수 및 역함수 수식")
 col1, col2 = st.columns(2)
+
 with col1:
     st.subheader("유리함수 $f(x)$")
     st.markdown(f"$$y = f(x) = \\frac{{{a}x + {b}}}{{{c}x + {d}}}$$")
+    
 with col2:
     st.subheader("역함수 $f^{-1}(x)$")
     st.markdown(f"$$y = f^{{-1}}(x) = \\frac{{{-d}x + {b}}}{{{c}x + {{-a}}}}$$")
 
 # ---
-# 2. 특이점 정보 (이전 코드와 동일)
+# 2. 특이점 정보
 st.header("2. 주요 정보 및 특이점")
 determinant = a * d - b * c
 
@@ -111,37 +98,35 @@ else:
         horizontal_asymptote_f = a / c
         st.info(f"""
         * **유리함수 $f(x)$**의 점근선: $x = {vertical_asymptote_f:.2f}$, $y = {horizontal_asymptote_f:.2f}$
+        
+        **👉 참고:** $f(x)$의 수직 점근선 ($x$)이 $f^{{-1}}(x)$의 수평 점근선 ($y$)이 되고, $f(x)$의 수평 점근선 ($y$)이 $f^{{-1}}(x)$의 수직 점근선 ($x$)이 됩니다.
         """)
     else: 
         st.warning("⚠️ **$c=0$ 이므로 함수는 일차함수 또는 상수함수 형태입니다.**")
 
 # ---
-# 3. 그래프 플롯 (수정된 데이터 생성 함수 사용)
+# 3. 그래프 플롯
 st.header("3. 그래프 비교 (y=x 대칭 확인)")
 
 if determinant != 0 and (c != 0 or d != 0):
     
-    # get_plot_data 함수를 사용하여 데이터 포인트를 분할하여 가져옴
-    data_f = get_plot_data(a, b, c, d, is_inverse=False)
-    data_inv = get_plot_data(a, b, c, d, is_inverse=True)
+    x_range = np.linspace(-10, 10, 800) 
+    y_f = calculate_function_values(x_range, a, b, c, d, is_inverse=False)
+    y_inv = calculate_function_values(x_range, a, b, c, d, is_inverse=True)
 
     fig, ax = plt.subplots(figsize=(8, 8))
     
-    # 원 함수 f(x) 그리기
-    for x_part, y_part in data_f:
-        # 분할된 각 구간을 따로 그려 수직선 연결을 차단
-        ax.plot(x_part, y_part, label=r'$f(x)$' if x_part is data_f[0][0] else None, color='blue', linestyle='-')
+    # 1. 원 함수 f(x)
+    ax.plot(x_range, y_f, label=r'$f(x)$', color='blue', linestyle='-')
     
-    # 역함수 f^-1(x) 그리기
-    for x_part, y_part in data_inv:
-        ax.plot(x_part, y_part, label=r'$f^{-1}(x)$' if x_part is data_inv[0][0] else None, color='red', linestyle='--')
+    # 2. 역함수 f^-1(x)
+    ax.plot(x_range, y_inv, label=r'$f^{-1}(x)$', color='red', linestyle='--')
     
-    # y=x 직선 (대칭선)
-    x_range_sym = np.linspace(-10, 10, 100)
-    ax.plot(x_range_sym, x_range_sym, label=r'$y=x$', color='gray', linestyle=':', linewidth=1)
+    # 3. y=x 직선 (대칭선)
+    ax.plot(x_range, x_range, label=r'$y=x$', color='gray', linestyle=':', linewidth=1)
     
     # 플롯 설정
-    ax.set_title("유리함수와 역함수의 그래프 (수직선 제거 완료)")
+    ax.set_title("유리함수와 역함수의 그래프 (수직선 제거됨)")
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.grid(True, linestyle='--', alpha=0.6)
@@ -157,7 +142,7 @@ else:
     st.warning("⚠️ **유효하지 않은 계수 조합으로 그래프를 표시할 수 없습니다.**")
 
 # ---
-# 4. 역함수 공식 유도 과정 (이전 코드와 동일)
+# 4. 역함수 공식 유도 과정
 st.header("4. 역함수 공식 유도 과정 💡")
 st.markdown("유리함수의 역함수는 **$x$와 $y$의 위치를 바꾼 후** $y$에 대해 정리하여 공식 $y = \\frac{{-dx + b}}{{cx - a}}$ 를 얻게 됩니다.")
 
